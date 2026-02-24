@@ -114,10 +114,21 @@ export const updateManuscript = async (req: AuthRequest, res: Response) => {
 
     // Only Author or Editors can update
     const isAuthor = manuscript.authorId === userId;
-    const isEditor = manuscript.collaborations.some(c => c.userId === userId && c.status === 'ACCEPTED' && c.role === 'EDITOR');
+    const collaboration = manuscript.collaborations.find(c => c.userId === userId && c.status === 'ACCEPTED');
+    const isEditor = collaboration?.role === 'EDITOR';
 
     if (!isAuthor && !isEditor) {
         return res.status(403).json({ message: 'Permission denied' });
+    }
+
+    // Restriction: Editor cannot rename or publish/unpublish
+    if (isEditor && !isAuthor) {
+        if (title && title !== manuscript.title) {
+            return res.status(403).json({ message: 'Editors are not allowed to rename the manuscript.' });
+        }
+        if (req.body.status && req.body.status !== manuscript.status) {
+            return res.status(403).json({ message: 'Editors are not allowed to change the publication status.' });
+        }
     }
 
     const updatedManuscript = await prisma.manuscript.update({
@@ -127,7 +138,9 @@ export const updateManuscript = async (req: AuthRequest, res: Response) => {
 
     // Notify if published
     if (req.body.status === 'PUBLISHED' && manuscript.status !== 'PUBLISHED') {
-        const { createNotification } = await import('./notificationController');
+        const { createNotification, createBulkNotifications } = await import('./notificationController');
+
+        // Notify the author themselves
         await createNotification(
             userId,
             'SYSTEM',
@@ -135,7 +148,29 @@ export const updateManuscript = async (req: AuthRequest, res: Response) => {
             `You published your manuscript: "${updatedManuscript.title}"`,
             { manuscriptId: updatedManuscript.id }
         );
+
+        // Notify Followers
+        const followers = await prisma.follow.findMany({
+            where: { followingId: manuscript.authorId },
+            select: { followerId: true }
+        });
+
+        if (followers.length > 0) {
+            const followerIds = followers.map(f => f.followerId);
+            const author = await prisma.user.findUnique({ where: { id: manuscript.authorId } });
+
+            await createBulkNotifications(
+                followerIds,
+                'FOLLOW',
+                'New Manuscript Published',
+                `${author?.fullName || 'An author you follow'} published a new manuscript: "${updatedManuscript.title}"`,
+                { manuscriptId: updatedManuscript.id, authorId: manuscript.authorId }
+            );
+        }
     }
+
+    const { emitToUser } = await import('../services/socketService');
+    emitToUser(manuscript.authorId, 'stats_update', { type: 'MANUSCRIPT_UPDATED' });
 
     return res.status(200).json({ message: 'Manuscript updated successfully', manuscript: updatedManuscript });
 };
@@ -156,6 +191,9 @@ export const deleteManuscript = async (req: AuthRequest, res: Response) => {
     }
 
     await prisma.manuscript.delete({ where: { id: Number(id) } });
+
+    const { emitToUser } = await import('../services/socketService');
+    emitToUser(manuscript.authorId, 'stats_update', { type: 'MANUSCRIPT_DELETED' });
 
     return res.status(200).json({ message: 'Manuscript deleted successfully' });
 };
@@ -323,12 +361,48 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
         // 4. Earnings (Placeholder logic: based on price if published, maybe 0 for now until actual sales)
         const totalEarnings = manuscripts.reduce((acc, m) => acc + (m.price || 0), 0);
 
+        // 5. Total Comments (on all chapters of all manuscripts)
+        const totalComments = await prisma.comment.count({
+            where: {
+                chapter: {
+                    manuscript: {
+                        OR: [
+                            { authorId: userId },
+                            { collaborations: { some: { userId, status: 'ACCEPTED' } } }
+                        ]
+                    }
+                }
+            }
+        });
+
+        // 6. Total Reviews
+        const totalReviews = await prisma.review.count({
+            where: {
+                chapter: {
+                    manuscript: {
+                        OR: [
+                            { authorId: userId },
+                            { collaborations: { some: { userId, status: 'ACCEPTED' } } }
+                        ]
+                    }
+                }
+            }
+        });
+
+        // 7. Total Followers
+        const totalFollowers = await prisma.follow.count({
+            where: { followingId: userId }
+        });
+
         return res.status(200).json({
             stats: {
                 totalManuscripts,
                 publishedBooks,
                 totalReads,
-                totalEarnings
+                totalEarnings,
+                totalComments,
+                totalReviews,
+                totalFollowers
             }
         });
     } catch (error: any) {

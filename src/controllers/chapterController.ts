@@ -31,6 +31,26 @@ export const createChapter = async (req: AuthRequest, res: Response) => {
         },
     });
 
+    // Notify Followers
+    const { createBulkNotifications } = await import('./notificationController');
+    const followers = await prisma.follow.findMany({
+        where: { followingId: manuscript.authorId },
+        select: { followerId: true }
+    });
+
+    if (followers.length > 0) {
+        const followerIds = followers.map(f => f.followerId);
+        const author = await prisma.user.findUnique({ where: { id: manuscript.authorId } });
+
+        await createBulkNotifications(
+            followerIds,
+            'FOLLOW',
+            'New Chapter Published',
+            `${author?.fullName || 'An author you follow'} published a new chapter "${title}" in "${manuscript.title}"`,
+            { manuscriptId: manuscript.id, chapterId: chapter.id, authorId: manuscript.authorId }
+        );
+    }
+
     return res.status(201).json({ message: 'Chapter created successfully', chapter });
 };
 
@@ -51,6 +71,29 @@ export const getChaptersByManuscript = async (req: AuthRequest, res: Response) =
     return res.status(200).json({ chapters });
 };
 
+export const getChapterById = async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+
+    const chapter = await prisma.chapter.findUnique({
+        where: { id: Number(id) },
+        include: { manuscript: true }
+    });
+
+    if (!chapter) return res.status(404).json({ message: 'Chapter not found' });
+
+    // Increment read count
+    await prisma.manuscript.update({
+        where: { id: chapter.manuscriptId },
+        data: { reads: { increment: 1 } }
+    });
+
+    // Emit real-time stat update to the author
+    const { emitToUser } = await import('../services/socketService');
+    emitToUser(chapter.manuscript.authorId, 'stats_update', { type: 'READ_INCREMENT' });
+
+    return res.status(200).json({ chapter });
+};
+
 export const updateChapter = async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const { title, content, order } = req.body;
@@ -69,6 +112,13 @@ export const updateChapter = async (req: AuthRequest, res: Response) => {
 
     if (!isAuthor && !isEditor) {
         return res.status(403).json({ message: 'Permission denied' });
+    }
+
+    // Restriction: Editor cannot rename the chapter
+    if (isEditor && !isAuthor) {
+        if (title && title !== chapter.title) {
+            return res.status(403).json({ message: 'Editors are not allowed to rename chapters.' });
+        }
     }
 
     const updatedChapter = await prisma.chapter.update({

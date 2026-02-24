@@ -6,6 +6,7 @@ import {
     deleteComment,
     addReview,
     getReviewsByChapter,
+    deleteReview,
 } from '../controllers/commentController';
 import { protect } from '../middleware/authMiddleware';
 import catchAsync from '../utils/catchAsync';
@@ -25,5 +26,6 @@ router.delete('/comment/:id', catchAsync(deleteComment));
 
 // Reviews
 router.post('/review', catchAsync(addReview));
+router.delete('/review/:id', catchAsync(deleteReview));
 
 export default router;

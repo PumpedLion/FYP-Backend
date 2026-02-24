@@ -11,6 +11,8 @@ import manuscriptRouter from './routers/manuscriptRoutes';
 import notificationRouter from './routers/notificationRoutes';
 import chapterRouter from './routers/chapterRoutes';
 import commentRouter from './routers/commentRoutes';
+import { createServer } from 'http';
+import { initSocket } from './services/socketService';
 
 const app = express();
 
@@ -44,11 +46,15 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 // Start Server
-const PORT = process.env.PORT || 8000;
+const server = createServer(app);
+initSocket(server);
+
+const PORT = Number(process.env.PORT) || 8000;
 const HOST = "localhost";
 
-app.listen(Number(PORT), HOST, () => {
+server.listen(PORT, HOST, () => {
   console.log(`Server is running at http://${HOST}:${PORT}`);
+  console.log(`Socket.io is initialized and listening`);
 });
 
 export default app;

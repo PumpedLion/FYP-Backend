@@ -223,7 +223,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
   if (!user) return res.status(404).json({ message: 'User with this email does not exist.' });
 
   const otp = generateOTP();
-  
+
   await prisma.user.update({
     where: { email },
     data: { otpCode: otp },
@@ -260,14 +260,96 @@ export const resetPassword = async (req: Request, res: Response) => {
   if (user.otpCode !== otp) return res.status(400).json({ message: 'Invalid or expired OTP.' });
 
   const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-  
+
   await prisma.user.update({
     where: { email },
-    data: { 
-      passwordHash: hashedNewPassword, 
+    data: {
+      passwordHash: hashedNewPassword,
       otpCode: null // Consume the OTP
     },
   });
 
   return res.status(200).json({ message: 'Password reset successful. You can now login with your new password.' });
+};
+
+// --- Follow System ---
+
+export const followUser = async (req: AuthRequest, res: Response) => {
+  const followerId = req.user.userId;
+  const followingId = Number(req.params.id);
+
+  if (followerId === followingId) {
+    return res.status(400).json({ message: 'You cannot follow yourself.' });
+  }
+
+  const targetUser = await prisma.user.findUnique({ where: { id: followingId } });
+  if (!targetUser) return res.status(404).json({ message: 'User not found.' });
+
+  // Check if already following
+  const existing = await prisma.follow.findUnique({
+    where: { followerId_followingId: { followerId, followingId } },
+  });
+  if (existing) return res.status(400).json({ message: 'You are already following this user.' });
+
+  await prisma.follow.create({ data: { followerId, followingId } });
+
+  const { emitToUser } = await import('../services/socketService');
+  emitToUser(followingId, 'stats_update', { type: 'FOLLOW_CHANGE' });
+
+  return res.status(201).json({ message: `You are now following ${targetUser.fullName}.` });
+};
+
+export const unfollowUser = async (req: AuthRequest, res: Response) => {
+  const followerId = req.user.userId;
+  const followingId = Number(req.params.id);
+
+  const existing = await prisma.follow.findUnique({
+    where: { followerId_followingId: { followerId, followingId } },
+  });
+  if (!existing) return res.status(400).json({ message: 'You are not following this user.' });
+
+  await prisma.follow.delete({
+    where: { followerId_followingId: { followerId, followingId } },
+  });
+
+  const { emitToUser } = await import('../services/socketService');
+  emitToUser(followingId, 'stats_update', { type: 'FOLLOW_CHANGE' });
+
+  return res.status(200).json({ message: 'Unfollowed successfully.' });
+};
+
+export const getFollowers = async (req: AuthRequest, res: Response) => {
+  const userId = Number(req.params.id);
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return res.status(404).json({ message: 'User not found.' });
+
+  const follows = await prisma.follow.findMany({
+    where: { followingId: userId },
+    include: {
+      follower: { select: { id: true, fullName: true, avatarUrl: true, role: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const followers = follows.map(f => f.follower);
+  return res.status(200).json({ followers, count: followers.length });
+};
+
+export const getFollowing = async (req: AuthRequest, res: Response) => {
+  const userId = Number(req.params.id);
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return res.status(404).json({ message: 'User not found.' });
+
+  const follows = await prisma.follow.findMany({
+    where: { followerId: userId },
+    include: {
+      following: { select: { id: true, fullName: true, avatarUrl: true, role: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const following = follows.map(f => f.following);
+  return res.status(200).json({ following, count: following.length });
 };

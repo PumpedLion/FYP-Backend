@@ -3,6 +3,7 @@ import express from 'express';
 import {
     createChapter,
     getChaptersByManuscript,
+    getChapterById,
     updateChapter,
     deleteChapter,
 } from '../controllers/chapterController';
@@ -13,6 +14,7 @@ const router = express.Router();
 
 // Public Routes
 router.get('/manuscript/:manuscriptId', catchAsync(getChaptersByManuscript));
+router.get('/:id', catchAsync(getChapterById));
 
 // Protected Routes
 router.use(protect);

@@ -20,6 +20,7 @@ enum NotificationType {
   SALE
   MENTION
   SYSTEM
+  FOLLOW
 }
 
 model Notification {
@@ -65,6 +66,8 @@ model User {
   notifications  Notification[]
   comments       Comment[]
   reviews        Review[]
+  followers      Follow[]        @relation("UserFollowing")
+  following      Follow[]        @relation("UserFollowers")
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -116,6 +119,11 @@ model Chapter {
   @@index([manuscriptId])
 }
 
+enum CommentType {
+  EDITORIAL
+  READER
+}
+
 model Comment {
   id              Int              @id @default(autoincrement())
   chapterId       Int
@@ -125,6 +133,7 @@ model Comment {
   author          User             @relation(fields: [authorId], references: [id])
   
   content         String           @db.Text
+  type            CommentType      @default(EDITORIAL)
   
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -180,3 +189,15 @@ model Collaboration {
   @@unique([manuscriptId, email])
 }
 
+model Follow {
+  id          Int      @id @default(autoincrement())
+  followerId  Int
+  follower    User     @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId Int
+  following   User     @relation("UserFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}

@@ -6,6 +6,10 @@ import { NotificationType } from '../../generated/prisma';
 
 // --- Helper Functions ---
 
+import { emitToUser } from '../services/socketService';
+
+// --- Helper Functions ---
+
 export const createNotification = async (
     recipientId: number,
     type: NotificationType,
@@ -13,7 +17,7 @@ export const createNotification = async (
     message: string,
     data?: any
 ) => {
-    return await prisma.notification.create({
+    const notification = await prisma.notification.create({
         data: {
             recipientId,
             type,
@@ -22,6 +26,42 @@ export const createNotification = async (
             data: data || {},
         },
     });
+
+    // Emit real-time notification via Socket.io
+    emitToUser(recipientId, 'notification', notification);
+
+    return notification;
+};
+
+export const createBulkNotifications = async (
+    recipientIds: number[],
+    type: NotificationType,
+    title: string,
+    message: string,
+    data?: any
+) => {
+    if (recipientIds.length === 0) return;
+
+    // Bulk create in Database
+    const notifications = await prisma.notification.createMany({
+        data: recipientIds.map(id => ({
+            recipientId: id,
+            type,
+            title,
+            message,
+            data: data || {},
+        })),
+    });
+
+    // Emit real-time for each recipient (using room emits if possible, but keep it simple for now)
+    recipientIds.forEach(id => {
+        // We don't have the individual notification objects here, so we might need a different approach 
+        // to emit if we want to include the ID. For now, let's just trigger a 'notification' event 
+        // that can prompt a refresh or contain the basic info.
+        emitToUser(id, 'notification_refresh', { type, title, message });
+    });
+
+    return notifications;
 };
 
 // --- Controllers ---
