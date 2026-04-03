@@ -133,8 +133,29 @@ export const updateManuscript = async (req: AuthRequest, res: Response) => {
 
     const updatedManuscript = await prisma.manuscript.update({
         where: { id: Number(id) },
-        data: { title, subtitle, genre, description, tags, coverUrl, status: req.body.status },
+        data: {
+            title,
+            subtitle,
+            genre,
+            description,
+            tags,
+            coverUrl,
+            status: req.body.status,
+            // Allow price to be set/updated (0 = free, >0 = paid)
+            ...(req.body.price !== undefined && { price: Number(req.body.price) }),
+        },
     });
+
+    // If publishing or updating a published manuscript, push draft content to publishedContent
+    if (req.body.status === 'PUBLISHED') {
+        const chapters = await prisma.chapter.findMany({ where: { manuscriptId: Number(id) } });
+        for (const chapter of chapters) {
+            await prisma.chapter.update({
+                where: { id: chapter.id },
+                data: { publishedContent: chapter.content },
+            });
+        }
+    }
 
     // Notify if published
     if (req.body.status === 'PUBLISHED' && manuscript.status !== 'PUBLISHED') {

@@ -61,13 +61,15 @@ model User {
   otpVerified     Boolean   @default(false)
 
   // Relations
-  manuscripts    Manuscript[]    @relation("AuthorManuscripts")
-  collaborations Collaboration[]
-  notifications  Notification[]
-  comments       Comment[]
-  reviews        Review[]
-  followers      Follow[]        @relation("UserFollowing")
-  following      Follow[]        @relation("UserFollowers")
+  manuscripts       Manuscript[]    @relation("AuthorManuscripts")
+  collaborations    Collaboration[]
+  notifications     Notification[]
+  comments          Comment[]
+  reviews           Review[]
+  followers         Follow[]        @relation("UserFollowing")
+  following         Follow[]        @relation("UserFollowers")
+  purchases         Purchase[]
+  suggestedEdits    SuggestedEdit[] @relation("EditorSuggestions")
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -96,6 +98,7 @@ model Manuscript {
   
   collaborations  Collaboration[]
   chapters        Chapter[]
+  purchases       Purchase[]
   
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -108,10 +111,12 @@ model Chapter {
   
   title           String
   content         String?          @db.Text
+  publishedContent String?         @db.Text
   order           Int              @default(0)
   
   comments        Comment[]
   reviews         Review[]
+  suggestedEdits  SuggestedEdit[]
   
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -200,4 +205,48 @@ model Follow {
   @@unique([followerId, followingId])
   @@index([followerId])
   @@index([followingId])
+}
+
+model Purchase {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  manuscriptId    Int
+  manuscript      Manuscript @relation(fields: [manuscriptId], references: [id], onDelete: Cascade)
+  amount          Float
+  gateway         String   // "ESEWA" | "KHALTI"
+  status          String   @default("PENDING") // "PENDING" | "COMPLETED" | "FAILED"
+  pidx            String?  // Khalti payment identifier
+  transactionCode String?  // eSewa transaction code
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, manuscriptId])
+  @@index([userId])
+  @@index([manuscriptId])
+}
+
+enum SuggestedEditStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model SuggestedEdit {
+  id               Int                 @id @default(autoincrement())
+  chapterId        Int
+  chapter          Chapter             @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  editorId         Int
+  editor           User                @relation("EditorSuggestions", fields: [editorId], references: [id])
+
+  originalContent  String              @db.Text
+  suggestedContent String              @db.Text
+
+  status           SuggestedEditStatus @default(PENDING)
+
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([chapterId])
+  @@index([editorId])
 }

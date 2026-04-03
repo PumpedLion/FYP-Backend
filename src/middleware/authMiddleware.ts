@@ -28,3 +28,16 @@ export const protect = (req: Request, res: Response, next: NextFunction) => {
     res.status(401).json({ message: 'Not authorized, no token' });
   }
 };
+
+export const optionalAuth = (req: Request, res: Response, next: NextFunction) => {
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    try {
+      const token = req.headers.authorization.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+      (req as AuthRequest).user = decoded;
+    } catch (error) {
+      // Ignore token errors for optional auth
+    }
+  }
+  next();
+};

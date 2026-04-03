@@ -7,14 +7,14 @@ import {
     updateChapter,
     deleteChapter,
 } from '../controllers/chapterController';
-import { protect } from '../middleware/authMiddleware';
+import { protect, optionalAuth } from '../middleware/authMiddleware';
 import catchAsync from '../utils/catchAsync';
 
 const router = express.Router();
 
-// Public Routes
-router.get('/manuscript/:manuscriptId', catchAsync(getChaptersByManuscript));
-router.get('/:id', catchAsync(getChapterById));
+// Public Routes (Optional Auth to identify author/editor vs reader)
+router.get('/manuscript/:manuscriptId', optionalAuth, catchAsync(getChaptersByManuscript));
+router.get('/:id', optionalAuth, catchAsync(getChapterById));
 
 // Protected Routes
 router.use(protect);

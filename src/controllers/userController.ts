@@ -3,6 +3,8 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
+import path from 'path';
+import fs from 'fs';
 import prisma from '../models'; // Import the singleton instance
 import { AuthRequest } from '../middleware/authMiddleware';
 
@@ -79,6 +81,10 @@ export const register = async (req: Request, res: Response) => {
   const hashedPassword = await bcrypt.hash(password, 10);
   const otp = generateOTP();
 
+  // Validate Role to ensure users cannot self-register as EDITOR or ADMIN
+  const allowedRoles = ['AUTHOR', 'READER'];
+  const assignedRole = role && allowedRoles.includes(role.toUpperCase()) ? role.toUpperCase() : 'READER';
+
   // Create User
   const user = await prisma.user.create({
     data: {
@@ -86,7 +92,7 @@ export const register = async (req: Request, res: Response) => {
       email,
       passwordHash: hashedPassword,
       otpCode: otp,
-      role: role || 'READER', // Default to READER if not provided
+      role: assignedRole,
     },
   });
 
@@ -180,6 +186,34 @@ export const editProfile = async (req: AuthRequest, res: Response) => {
   });
 
   return res.status(200).json({ message: 'Profile updated', user: updatedUser });
+};
+
+interface MulterFile { fieldname: string; originalname: string; encoding: string; mimetype: string; size: number; filename: string; destination: string; path: string; buffer: Buffer; }
+
+export const uploadAvatar = async (req: AuthRequest & { file?: MulterFile }, res: Response) => {
+  const userId = req.user.userId;
+
+  if (!req.file) {
+    return res.status(400).json({ message: 'No file uploaded' });
+  }
+
+  // Build the public URL for the uploaded file
+  const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+
+  // Delete old avatar file if it exists and is a local file
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { avatarUrl: true } });
+  if (user?.avatarUrl && user.avatarUrl.startsWith('/uploads/')) {
+    const oldPath = path.join(process.cwd(), user.avatarUrl);
+    if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: { avatarUrl },
+    select: { id: true, fullName: true, email: true, role: true, bio: true, avatarUrl: true, createdAt: true },
+  });
+
+  return res.status(200).json({ message: 'Avatar updated', user: updatedUser, avatarUrl });
 };
 
 export const deleteUser = async (req: AuthRequest, res: Response) => {

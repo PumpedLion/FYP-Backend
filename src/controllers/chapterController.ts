@@ -56,30 +56,65 @@ export const createChapter = async (req: AuthRequest, res: Response) => {
 
 export const getChaptersByManuscript = async (req: AuthRequest, res: Response) => {
     const { manuscriptId } = req.params;
+    const userId = req.user?.userId;
 
     const manuscript = await prisma.manuscript.findUnique({
         where: { id: Number(manuscriptId) },
+        include: { collaborations: true }
     });
 
     if (!manuscript) return res.status(404).json({ message: 'Manuscript not found' });
 
-    const chapters = await prisma.chapter.findMany({
+    const isAuthor = manuscript.authorId === userId;
+    const isEditor = manuscript.collaborations.some((c: any) => c.userId === userId && c.role === 'EDITOR' && c.status === 'ACCEPTED');
+    const canSeeDrafts = isAuthor || isEditor;
+
+    let chapters = await prisma.chapter.findMany({
         where: { manuscriptId: Number(manuscriptId) },
         orderBy: { order: 'asc' },
     });
 
-    return res.status(200).json({ chapters });
+    // If the requester is not an author/editor, they should only see the published content
+    if (!canSeeDrafts) {
+        chapters = chapters.map(chapter => ({
+            ...chapter,
+            content: chapter.publishedContent || '', // Swap published into the main content field
+        }));
+    }
+
+    // Strip publishedContent from the final response to keep payloads clean
+    const cleanedChapters = chapters.map(c => {
+        const { publishedContent, ...rest } = c as any;
+        return rest;
+    });
+
+    return res.status(200).json({ chapters: cleanedChapters });
 };
 
 export const getChapterById = async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
+    const userId = req.user?.userId;
 
     const chapter = await prisma.chapter.findUnique({
         where: { id: Number(id) },
-        include: { manuscript: true }
+        include: { manuscript: { include: { collaborations: true } } }
     });
 
     if (!chapter) return res.status(404).json({ message: 'Chapter not found' });
+
+    const isAuthor = chapter.manuscript.authorId === userId;
+    const isEditor = chapter.manuscript.collaborations.some((c: any) => c.userId === userId && c.role === 'EDITOR' && c.status === 'ACCEPTED');
+    const canSeeDrafts = isAuthor || isEditor;
+
+    let responseChapter = { ...chapter };
+
+    // If the requester is not an author/editor, they should only see the published content
+    if (!canSeeDrafts) {
+        responseChapter.content = responseChapter.publishedContent || '';
+    }
+
+    // Strip publishedContent from the final response
+    const { publishedContent, ...cleanedChapter } = responseChapter as any;
 
     // Increment read count
     await prisma.manuscript.update({
@@ -91,7 +126,7 @@ export const getChapterById = async (req: AuthRequest, res: Response) => {
     const { emitToUser } = await import('../services/socketService');
     emitToUser(chapter.manuscript.authorId, 'stats_update', { type: 'READ_INCREMENT' });
 
-    return res.status(200).json({ chapter });
+    return res.status(200).json({ chapter: cleanedChapter });
 };
 
 export const updateChapter = async (req: AuthRequest, res: Response) => {
@@ -118,6 +153,13 @@ export const updateChapter = async (req: AuthRequest, res: Response) => {
     if (isEditor && !isAuthor) {
         if (title && title !== chapter.title) {
             return res.status(403).json({ message: 'Editors are not allowed to rename chapters.' });
+        }
+        // Editors must use the suggested-edit workflow to change content
+        if (content !== undefined && content !== chapter.content) {
+            return res.status(403).json({
+                message: 'Editors cannot directly edit chapter content. Please submit a suggested edit instead.',
+                code: 'USE_SUGGESTED_EDIT',
+            });
         }
     }
 
