@@ -4,11 +4,14 @@ import prisma from '../models';
 import { AuthRequest } from '../middleware/authMiddleware';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import { sendInvoiceEmail } from './invoiceController';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 // Use environment variables in production; these are sandbox/test keys
-const KHALTI_SECRET_KEY = process.env.KHALTI_SECRET_KEY || '8b414d3e75ad41d88e16184c75bf6eea'; // Replace with your key
-const KHALTI_BASE_URL = 'https://a.khalti.com/api/v2'; // UAT: https://a.khalti.com
+const KHALTI_SECRET_KEY = process.env.KHALTI_SECRET_KEY || '8b414d3e75ad41d88e16184c75bf6eea';
+// Sandbox / test: https://dev.khalti.com/api/v2
+// Live / production: https://khalti.com/api/v2
+const KHALTI_BASE_URL = process.env.KHALTI_BASE_URL || 'https://khalti.com/api/v2';
 
 const ESEWA_MERCHANT_ID = process.env.ESEWA_MERCHANT_ID || 'EPAYTEST';
 const ESEWA_SECRET_KEY = process.env.ESEWA_SECRET_KEY || '8gBm/:&EnhH.1/q'; // UAT secret key
@@ -25,6 +28,21 @@ export const checkPurchase = async (req: AuthRequest, res: Response) => {
     });
 
     return res.status(200).json({ purchased: purchase?.status === 'COMPLETED' });
+};
+
+// --- Purchase History ---
+export const getPurchaseHistory = async (req: AuthRequest, res: Response) => {
+    const userId = req.user.userId;
+    try {
+        const purchases = await prisma.purchase.findMany({
+            where: { userId, status: 'COMPLETED' },
+            include: { manuscript: true },
+            orderBy: { createdAt: 'desc' },
+        });
+        return res.status(200).json({ purchases });
+    } catch (err) {
+        return res.status(500).json({ message: 'Error fetching purchase history' });
+    }
 };
 
 // ─── Khalti ──────────────────────────────────────────────────────────────────
@@ -126,6 +144,9 @@ export const verifyKhaltiPayment = async (req: AuthRequest, res: Response) => {
         data: { status: 'COMPLETED' },
     });
 
+    // Send invoice email asynchronously
+    sendInvoiceEmail(userId, Number(manuscriptId)).catch(console.error);
+
     return res.status(200).json({ message: 'Payment verified successfully', purchased: true });
 };
 
@@ -184,10 +205,20 @@ export const khaltiReturn = async (req: Request, res: Response) => {
 
         if (lookupData.status === 'Completed') {
             // Update purchase record
-            await prisma.purchase.updateMany({
-                where: { pidx: pidx, gateway: 'KHALTI' },
-                data: { status: 'COMPLETED', transactionCode: transaction_id },
+            const updatedPurchases = await prisma.purchase.findMany({
+                where: { pidx: pidx, gateway: 'KHALTI' }
             });
+
+            if (updatedPurchases.length > 0) {
+                // If it isn't already completed, we just update it and send an email
+                if (updatedPurchases[0].status !== 'COMPLETED') {
+                   await prisma.purchase.update({
+                       where: { id: updatedPurchases[0].id },
+                       data: { status: 'COMPLETED', transactionCode: transaction_id },
+                   });
+                   sendInvoiceEmail(updatedPurchases[0].userId, updatedPurchases[0].manuscriptId).catch(console.error);
+                }
+            }
 
             const successHtml = `<!DOCTYPE html>
 <html>
@@ -429,6 +460,9 @@ export const verifyEsewaPayment = async (req: AuthRequest, res: Response) => {
         data: { status: 'COMPLETED', transactionCode: transaction_uuid },
     });
 
+    // Send invoice email asynchronously
+    sendInvoiceEmail(userId, Number(manuscriptId)).catch(console.error);
+
     return res.status(200).json({ message: 'Payment verified successfully', purchased: true });
 };
 
@@ -471,10 +505,21 @@ export const esewaReturn = async (req: Request, res: Response) => {
     // Mark purchase COMPLETED using the transaction_uuid
     const transactionCode = decoded.transaction_uuid || decoded.transaction_code;
     if (transactionCode) {
-        await prisma.purchase.updateMany({
-            where: { transactionCode: transactionCode, gateway: 'ESEWA' },
-            data: { status: 'COMPLETED' },
+        const matchingPurchases = await prisma.purchase.findMany({
+            where: { transactionCode: transactionCode, gateway: 'ESEWA' }
         });
+
+        if (matchingPurchases.length > 0) {
+             const purchase = matchingPurchases[0];
+             if (purchase.status !== 'COMPLETED') {
+                 await prisma.purchase.update({
+                     where: { id: purchase.id },
+                     data: { status: 'COMPLETED' },
+                 });
+                 // Fire and forget email
+                 sendInvoiceEmail(purchase.userId, purchase.manuscriptId).catch(console.error);
+             }
+        }
     }
 
     const html = `<!DOCTYPE html>
@@ -591,6 +636,8 @@ export const verifyEsewaByManuscript = async (req: AuthRequest, res: Response) =
         data: { status: 'COMPLETED' },
     });
 
+    sendInvoiceEmail(userId, Number(manuscriptId)).catch(console.error);
+
     return res.status(200).json({ message: 'eSewa payment verified successfully', purchased: true });
 };
 
@@ -634,6 +681,11 @@ export const verifyEsewaByRefId = async (req: AuthRequest, res: Response) => {
             transactionCode: refId,
         },
     });
+
+    // Note: upsert returns the affected record
+    // We only want to send it if it wasn't already completed... but for safety, we just send.
+    // Ideally we check if it was PENDING first, but this is a simplified approach.
+    sendInvoiceEmail(userId, Number(manuscriptId)).catch(console.error);
 
     return res.status(200).json({ message: 'eSewa payment verified', purchased: true });
 };

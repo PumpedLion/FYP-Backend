@@ -2,6 +2,7 @@
 import express from 'express';
 import {
     checkPurchase,
+    getPurchaseHistory,
     initKhaltiPayment,
     verifyKhaltiPayment,
     initEsewaPayment,
@@ -13,6 +14,7 @@ import {
     initEsewaForm,
     khaltiReturn,
 } from '../controllers/paymentController';
+import { downloadInvoice } from '../controllers/invoiceController';
 import { protect } from '../middleware/authMiddleware';
 import catchAsync from '../utils/catchAsync';
 
@@ -26,6 +28,9 @@ router.get('/khalti/return', catchAsync(khaltiReturn));
 // Public form endpoint for Chrome/desktop (authenticates via ?token= query param)
 router.get('/esewa/init-form', catchAsync(initEsewaForm));
 
+// Invoice download — authenticates via ?token= query param OR Authorization header
+router.get('/invoice/:manuscriptId', catchAsync(downloadInvoice));
+
 // All routes below require authentication
 router.use(protect);
 
@@ -36,5 +41,6 @@ router.post('/esewa/init', catchAsync(initEsewaPayment));
 router.post('/esewa/verify', catchAsync(verifyEsewaPayment));
 router.post('/esewa/verify-by-manuscript', catchAsync(verifyEsewaByManuscript));
 router.post('/esewa/verify-by-ref', catchAsync(verifyEsewaByRefId));
+router.get('/history', catchAsync(getPurchaseHistory));
 
 export default router;
