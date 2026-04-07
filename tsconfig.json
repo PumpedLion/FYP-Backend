@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    // File layout
+    "rootDir": "./src",       // Source files live here
+    "outDir": "./dist",       // Compiled JS goes here
+
+    // Environment / module settings
+    "module": "nodenext",       // For Node.js ES modules
+    "target": "ES2022",       // Modern Node version
+    "moduleResolution": "nodenext",
+    "esModuleInterop": true,  // Needed for importing commonjs modules like bcryptjs
+    "forceConsistentCasingInFileNames": true,
+
+    // Type checking
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "skipLibCheck": true,
+
+    // Output files
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules"]
+}
