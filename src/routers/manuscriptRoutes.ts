@@ -10,9 +10,9 @@ import {
     respondToInvitation,
     getAllManuscripts,
     getDashboardStats
-} from '../controllers/manuscriptController';
-import { protect } from '../middleware/authMiddleware';
-import catchAsync from '../utils/catchAsync';
+} from '../controllers/manuscriptController.js';
+import { protect } from '../middleware/authMiddleware.js';
+import catchAsync from '../utils/catchAsync.js';
 
 const router = express.Router();
 

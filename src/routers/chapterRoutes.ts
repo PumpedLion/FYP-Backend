@@ -6,9 +6,9 @@ import {
     getChapterById,
     updateChapter,
     deleteChapter,
-} from '../controllers/chapterController';
-import { protect, optionalAuth } from '../middleware/authMiddleware';
-import catchAsync from '../utils/catchAsync';
+} from '../controllers/chapterController.js';
+import { protect, optionalAuth } from '../middleware/authMiddleware.js';
+import catchAsync from '../utils/catchAsync.js';
 
 const router = express.Router();
 

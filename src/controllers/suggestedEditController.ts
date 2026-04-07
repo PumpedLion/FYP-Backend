@@ -1,8 +1,8 @@
 // src/controllers/suggestedEditController.ts
 import { Response } from 'express';
-import prisma from '../models';
-import { AuthRequest } from '../middleware/authMiddleware';
-import { emitToUser, emitToChapter } from '../services/socketService';
+import prisma from '../models/index.js';
+import { AuthRequest } from '../middleware/authMiddleware.js';
+import { emitToUser, emitToChapter } from '../services/socketService.js';
 
 // POST /api/suggested-edits
 // Editor submits a suggested edit for a chapter

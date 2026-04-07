@@ -1,10 +1,10 @@
 // src/controllers/commentController.ts
 import { Response } from 'express';
-import prisma from '../models';
-import { AuthRequest } from '../middleware/authMiddleware';
-import { createNotification } from './notificationController';
+import prisma from '../models/index.js';
+import { AuthRequest } from '../middleware/authMiddleware.js';
+import { createNotification } from './notificationController.js';
 
-import { emitToChapter, emitToUser } from '../services/socketService';
+import { emitToChapter, emitToUser } from '../services/socketService.js';
 
 // --- Comments ---
 

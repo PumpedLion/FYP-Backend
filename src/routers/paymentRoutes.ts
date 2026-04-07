@@ -13,10 +13,10 @@ import {
     esewaFailure,
     initEsewaForm,
     khaltiReturn,
-} from '../controllers/paymentController';
-import { downloadInvoice } from '../controllers/invoiceController';
-import { protect } from '../middleware/authMiddleware';
-import catchAsync from '../utils/catchAsync';
+} from '../controllers/paymentController.js';
+import { downloadInvoice } from '../controllers/invoiceController.js';
+import { protect } from '../middleware/authMiddleware.js';
+import catchAsync from '../utils/catchAsync.js';
 
 const router = express.Router();
 

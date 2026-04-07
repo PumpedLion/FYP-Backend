@@ -5,8 +5,8 @@ import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 import path from 'path';
 import fs from 'fs';
-import prisma from '../models'; // Import the singleton instance
-import { AuthRequest } from '../middleware/authMiddleware';
+import prisma from '../models/index.js'; // Import the singleton instance
+import { AuthRequest } from '../middleware/authMiddleware.js';
 
 // --- Email Configuration ---
 // Clean SMTP credentials (remove surrounding quotes if present)
@@ -327,7 +327,7 @@ export const followUser = async (req: AuthRequest, res: Response) => {
 
   await prisma.follow.create({ data: { followerId, followingId } });
 
-  const { emitToUser } = await import('../services/socketService');
+  const { emitToUser } = await import('../services/socketService.js');
   emitToUser(followingId, 'stats_update', { type: 'FOLLOW_CHANGE' });
 
   return res.status(201).json({ message: `You are now following ${targetUser.fullName}.` });
@@ -346,7 +346,7 @@ export const unfollowUser = async (req: AuthRequest, res: Response) => {
     where: { followerId_followingId: { followerId, followingId } },
   });
 
-  const { emitToUser } = await import('../services/socketService');
+  const { emitToUser } = await import('../services/socketService.js');
   emitToUser(followingId, 'stats_update', { type: 'FOLLOW_CHANGE' });
 
   return res.status(200).json({ message: 'Unfollowed successfully.' });
@@ -366,7 +366,7 @@ export const getFollowers = async (req: AuthRequest, res: Response) => {
     orderBy: { createdAt: 'desc' },
   });
 
-  const followers = follows.map(f => f.follower);
+  const followers = follows.map((f: { follower: { id: number; fullName: string; avatarUrl: string | null; role: string } }) => f.follower);
   return res.status(200).json({ followers, count: followers.length });
 };
 
@@ -384,6 +384,6 @@ export const getFollowing = async (req: AuthRequest, res: Response) => {
     orderBy: { createdAt: 'desc' },
   });
 
-  const following = follows.map(f => f.following);
+  const following = follows.map((f: { following: { id: number; fullName: string; avatarUrl: string | null; role: string } }) => f.following);
   return res.status(200).json({ following, count: following.length });
 };

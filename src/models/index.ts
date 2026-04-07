@@ -32,10 +32,13 @@ const match = cleanDatabaseUrl.match(urlPattern);
 let pool: Pool;
 
 if (match) {
-  // Parse connection string components
-  const [, user, password, host, port, database] = match;
-  
-  // Create pool with individual parameters to ensure password is a string
+  // Parse connection string components — index 0 is full match, 1..5 are groups
+  const user     = match[1] ?? '';
+  const password = match[2] ?? '';
+  const host     = match[3] ?? '';
+  const port     = match[4] ?? '5432';
+  const database = match[5] ?? '';
+
   pool = new Pool({
     user: decodeURIComponent(user),
     password: String(decodeURIComponent(password)),
@@ -60,8 +63,8 @@ const adapter = new PrismaPg(pool);
 
 export const prisma = globalForPrisma.prisma || new PrismaClient({
   adapter,
-  log: process.env.NODE_ENV === 'production' 
-    ? ['error'] 
+  log: process.env.NODE_ENV === 'production'
+    ? ['error']
     : ['query', 'error', 'warn'],
   errorFormat: 'pretty',
 });

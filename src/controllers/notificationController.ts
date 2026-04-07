@@ -1,12 +1,12 @@
 // src/controllers/notificationController.ts
 import { Response } from 'express';
-import prisma from '../models';
-import { AuthRequest } from '../middleware/authMiddleware';
-import { NotificationType } from '../../generated/prisma';
+import prisma from '../models/index.js';
+import { AuthRequest } from '../middleware/authMiddleware.js';
+import { NotificationType } from '../../generated/prisma/index.js';
 
 // --- Helper Functions ---
 
-import { emitToUser } from '../services/socketService';
+import { emitToUser } from '../services/socketService.js';
 
 // --- Helper Functions ---
 

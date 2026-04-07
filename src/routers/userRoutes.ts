@@ -19,9 +19,9 @@ import {
   unfollowUser,
   getFollowers,
   getFollowing,
-} from '../controllers/userController';
-import catchAsync from '../utils/catchAsync';
-import { protect } from '../middleware/authMiddleware';
+} from '../controllers/userController.js';
+import catchAsync from '../utils/catchAsync.js';
+import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 

@@ -1,7 +1,7 @@
 // src/controllers/manuscriptController.ts
 import { Response } from 'express';
-import prisma from '../models';
-import { AuthRequest } from '../middleware/authMiddleware';
+import prisma from '../models/index.js';
+import { AuthRequest } from '../middleware/authMiddleware.js';
 
 // --- Manuscript CRUD ---
 
@@ -22,7 +22,7 @@ export const createManuscript = async (req: AuthRequest, res: Response) => {
     });
 
     // Notify user of their own action (for activity feed)
-    const { createNotification } = await import('./notificationController');
+    const { createNotification } = await import('./notificationController.js');
     await createNotification(
         authorId,
         'SYSTEM',
@@ -114,7 +114,7 @@ export const updateManuscript = async (req: AuthRequest, res: Response) => {
 
     // Only Author or Editors can update
     const isAuthor = manuscript.authorId === userId;
-    const collaboration = manuscript.collaborations.find(c => c.userId === userId && c.status === 'ACCEPTED');
+    const collaboration = manuscript.collaborations.find((c: any) => c.userId === userId && c.status === 'ACCEPTED');
     const isEditor = collaboration?.role === 'EDITOR';
 
     if (!isAuthor && !isEditor) {
@@ -159,7 +159,7 @@ export const updateManuscript = async (req: AuthRequest, res: Response) => {
 
     // Notify if published
     if (req.body.status === 'PUBLISHED' && manuscript.status !== 'PUBLISHED') {
-        const { createNotification, createBulkNotifications } = await import('./notificationController');
+        const { createNotification, createBulkNotifications } = await import('./notificationController.js');
 
         // Notify the author themselves
         await createNotification(
@@ -177,7 +177,7 @@ export const updateManuscript = async (req: AuthRequest, res: Response) => {
         });
 
         if (followers.length > 0) {
-            const followerIds = followers.map(f => f.followerId);
+            const followerIds = followers.map((f: { followerId: number }) => f.followerId);
             const author = await prisma.user.findUnique({ where: { id: manuscript.authorId } });
 
             await createBulkNotifications(
@@ -190,7 +190,7 @@ export const updateManuscript = async (req: AuthRequest, res: Response) => {
         }
     }
 
-    const { emitToUser } = await import('../services/socketService');
+    const { emitToUser } = await import('../services/socketService.js');
     emitToUser(manuscript.authorId, 'stats_update', { type: 'MANUSCRIPT_UPDATED' });
 
     return res.status(200).json({ message: 'Manuscript updated successfully', manuscript: updatedManuscript });
@@ -213,7 +213,7 @@ export const deleteManuscript = async (req: AuthRequest, res: Response) => {
 
     await prisma.manuscript.delete({ where: { id: Number(id) } });
 
-    const { emitToUser } = await import('../services/socketService');
+    const { emitToUser } = await import('../services/socketService.js');
     emitToUser(manuscript.authorId, 'stats_update', { type: 'MANUSCRIPT_DELETED' });
 
     return res.status(200).json({ message: 'Manuscript deleted successfully' });
@@ -256,7 +256,7 @@ export const inviteCollaborator = async (req: AuthRequest, res: Response) => {
 
     // Trigger internal notification if user exists
     if (invitedUser) {
-        const { createNotification } = await import('./notificationController');
+        const { createNotification } = await import('./notificationController.js');
         const sender = await prisma.user.findUnique({ where: { id: userId } });
 
         await createNotification(
@@ -315,7 +315,7 @@ export const respondToInvitation = async (req: AuthRequest, res: Response) => {
         where: { id: collaboration.manuscriptId }
     });
     if (manuscript && status === 'ACCEPTED') {
-        const { createNotification } = await import('./notificationController');
+        const { createNotification } = await import('./notificationController.js');
         await createNotification(
             manuscript.authorId,
             'COLLABORATION',
@@ -324,7 +324,7 @@ export const respondToInvitation = async (req: AuthRequest, res: Response) => {
             { manuscriptId: manuscript.id, collaborationId: collaboration.id, status }
         );
     } else if (manuscript && status === 'DECLINED') {
-        const { createNotification } = await import('./notificationController');
+        const { createNotification } = await import('./notificationController.js');
         await createNotification(
             manuscript.authorId,
             'COLLABORATION',
@@ -377,10 +377,10 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             select: { reads: true, price: true }
         });
 
-        const totalReads = manuscripts.reduce((acc, m) => acc + (m.reads || 0), 0);
+        const totalReads = manuscripts.reduce((acc: number, m: { reads: number; price: number }) => acc + (m.reads || 0), 0);
 
         // 4. Earnings (Placeholder logic: based on price if published, maybe 0 for now until actual sales)
-        const totalEarnings = manuscripts.reduce((acc, m) => acc + (m.price || 0), 0);
+        const totalEarnings = manuscripts.reduce((acc: number, m: { reads: number; price: number }) => acc + (m.price || 0), 0);
 
         // 5. Total Comments (on all chapters of all manuscripts)
         const totalComments = await prisma.comment.count({

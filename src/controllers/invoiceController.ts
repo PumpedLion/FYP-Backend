@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import prisma from '../models';
+import prisma from '../models/index.js';
 import PDFDocument from 'pdfkit';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
@@ -99,7 +99,7 @@ export const downloadInvoice = async (req: Request, res: Response) => {
   // Extract token from Auth Header or URL Query Parameter
   let token = req.query.token as string;
   if (!token && req.headers.authorization?.startsWith('Bearer ')) {
-    token = req.headers.authorization.split(' ')[1];
+    token = req.headers.authorization.split(' ')[1]!;
   }
 
   if (!token) {
@@ -158,7 +158,7 @@ export const sendInvoiceEmail = async (userId: number, manuscriptId: number) => 
 
     await transporter.sendMail({
       from: `"YourTales Billing" <${smtpUser}>`,
-      to: purchase.user.email,
+      to: purchase.user.email as string,
       subject: `Your Receipt for "${purchase.manuscript.title}"`,
       html: `
         <p>Hi ${purchase.user.fullName},</p>

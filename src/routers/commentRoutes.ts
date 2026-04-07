@@ -7,9 +7,9 @@ import {
     addReview,
     getReviewsByChapter,
     deleteReview,
-} from '../controllers/commentController';
-import { protect } from '../middleware/authMiddleware';
-import catchAsync from '../utils/catchAsync';
+} from '../controllers/commentController.js';
+import { protect } from '../middleware/authMiddleware.js';
+import catchAsync from '../utils/catchAsync.js';
 
 const router = express.Router();
 

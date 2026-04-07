@@ -5,8 +5,8 @@ import {
     getSuggestedEditsForChapter,
     acceptSuggestedEdit,
     declineSuggestedEdit,
-} from '../controllers/suggestedEditController';
-import { protect } from '../middleware/authMiddleware';
+} from '../controllers/suggestedEditController.js';
+import { protect } from '../middleware/authMiddleware.js';
 
 const router = Router();
 

@@ -1,7 +1,7 @@
 // src/controllers/chapterController.ts
 import { Response } from 'express';
-import prisma from '../models';
-import { AuthRequest } from '../middleware/authMiddleware';
+import prisma from '../models/index.js';
+import { AuthRequest } from '../middleware/authMiddleware.js';
 
 export const createChapter = async (req: AuthRequest, res: Response) => {
     const { manuscriptId, title, content, order } = req.body;
@@ -32,14 +32,14 @@ export const createChapter = async (req: AuthRequest, res: Response) => {
     });
 
     // Notify Followers
-    const { createBulkNotifications } = await import('./notificationController');
+    const { createBulkNotifications } = await import('./notificationController.js');
     const followers = await prisma.follow.findMany({
         where: { followingId: manuscript.authorId },
         select: { followerId: true }
     });
 
     if (followers.length > 0) {
-        const followerIds = followers.map(f => f.followerId);
+        const followerIds = followers.map((f: { followerId: number }) => f.followerId);
         const author = await prisma.user.findUnique({ where: { id: manuscript.authorId } });
 
         await createBulkNotifications(
@@ -76,14 +76,14 @@ export const getChaptersByManuscript = async (req: AuthRequest, res: Response) =
 
     // If the requester is not an author/editor, they should only see the published content
     if (!canSeeDrafts) {
-        chapters = chapters.map(chapter => ({
+        chapters = chapters.map((chapter: typeof chapters[number]) => ({
             ...chapter,
             content: chapter.publishedContent || '', // Swap published into the main content field
         }));
     }
 
     // Strip publishedContent from the final response to keep payloads clean
-    const cleanedChapters = chapters.map(c => {
+    const cleanedChapters = chapters.map((c: any) => {
         const { publishedContent, ...rest } = c as any;
         return rest;
     });
@@ -123,7 +123,7 @@ export const getChapterById = async (req: AuthRequest, res: Response) => {
     });
 
     // Emit real-time stat update to the author
-    const { emitToUser } = await import('../services/socketService');
+    const { emitToUser } = await import('../services/socketService.js');
     emitToUser(chapter.manuscript.authorId, 'stats_update', { type: 'READ_INCREMENT' });
 
     return res.status(200).json({ chapter: cleanedChapter });

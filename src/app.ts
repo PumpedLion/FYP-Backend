@@ -6,15 +6,15 @@ dotenv.config();
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import userRouter from './routers/userRoutes';
-import manuscriptRouter from './routers/manuscriptRoutes';
-import notificationRouter from './routers/notificationRoutes';
-import chapterRouter from './routers/chapterRoutes';
-import commentRouter from './routers/commentRoutes';
-import paymentRouter from './routers/paymentRoutes';
-import suggestedEditRouter from './routers/suggestedEditRoutes';
+import userRouter from './routers/userRoutes.js';
+import manuscriptRouter from './routers/manuscriptRoutes.js';
+import notificationRouter from './routers/notificationRoutes.js';
+import chapterRouter from './routers/chapterRoutes.js';
+import commentRouter from './routers/commentRoutes.js';
+import paymentRouter from './routers/paymentRoutes.js';
+import suggestedEditRouter from './routers/suggestedEditRoutes.js';
 import { createServer } from 'http';
-import { initSocket } from './services/socketService';
+import { initSocket } from './services/socketService.js';
 
 const app = express();
 

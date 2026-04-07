@@ -1,10 +1,10 @@
 // src/controllers/paymentController.ts
 import { Request, Response } from 'express';
-import prisma from '../models';
-import { AuthRequest } from '../middleware/authMiddleware';
+import prisma from '../models/index.js';
+import { AuthRequest } from '../middleware/authMiddleware.js';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { sendInvoiceEmail } from './invoiceController';
+import { sendInvoiceEmail } from './invoiceController.js';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 // Use environment variables in production; these are sandbox/test keys
@@ -211,12 +211,13 @@ export const khaltiReturn = async (req: Request, res: Response) => {
 
             if (updatedPurchases.length > 0) {
                 // If it isn't already completed, we just update it and send an email
-                if (updatedPurchases[0].status !== 'COMPLETED') {
+                const firstPurchase = updatedPurchases[0];
+                if (firstPurchase && firstPurchase.status !== 'COMPLETED') {
                    await prisma.purchase.update({
-                       where: { id: updatedPurchases[0].id },
+                       where: { id: firstPurchase.id },
                        data: { status: 'COMPLETED', transactionCode: transaction_id },
                    });
-                   sendInvoiceEmail(updatedPurchases[0].userId, updatedPurchases[0].manuscriptId).catch(console.error);
+                   sendInvoiceEmail(firstPurchase.userId, firstPurchase.manuscriptId).catch(console.error);
                 }
             }
 
@@ -511,7 +512,7 @@ export const esewaReturn = async (req: Request, res: Response) => {
 
         if (matchingPurchases.length > 0) {
              const purchase = matchingPurchases[0];
-             if (purchase.status !== 'COMPLETED') {
+             if (purchase && purchase.status !== 'COMPLETED') {
                  await prisma.purchase.update({
                      where: { id: purchase.id },
                      data: { status: 'COMPLETED' },

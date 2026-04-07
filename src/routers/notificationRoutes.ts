@@ -5,9 +5,9 @@ import {
     markAsRead,
     markAllAsRead,
     deleteNotification,
-} from '../controllers/notificationController';
-import { protect } from '../middleware/authMiddleware';
-import catchAsync from '../utils/catchAsync';
+} from '../controllers/notificationController.js';
+import { protect } from '../middleware/authMiddleware.js';
+import catchAsync from '../utils/catchAsync.js';
 
 const router = express.Router();
 
