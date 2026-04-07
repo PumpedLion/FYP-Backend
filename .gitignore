@@ -1,5 +1,28 @@
-node_modules
-# Keep environment variables out of version control
+# Node modules
+node_modules/
+
+# TypeScript output
+dist/
+
+# Environment variables (never commit secrets)
 .env
 
+# Prisma generated files
 /generated/prisma
+/prisma/migrations/
+prisma/.env   # if you have Prisma-specific .env
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# IDE / Editor settings
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+
+# Optional: Debug or temporary files
+*.tmp
