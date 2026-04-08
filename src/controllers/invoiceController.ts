@@ -7,11 +7,14 @@ import nodemailer from 'nodemailer';
 // --- Email Configuration ---
 const smtpUser = process.env.SMTP_USER?.trim().replace(/^["']|["']$/g, '') || '';
 const smtpPass = process.env.SMTP_PASS?.trim().replace(/^["']|["']$/g, '') || '';
+const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+const smtpSecure = process.env.SMTP_SECURE === 'true' || smtpPort === 465;
 
 const transporter = smtpUser && smtpPass ? nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false, // true for 465, false for other ports
+  host: smtpHost,
+  port: smtpPort,
+  secure: smtpSecure, // true for 465, false for other ports
   auth: {
     user: smtpUser,
     pass: smtpPass,
