@@ -12,15 +12,12 @@ import { AuthRequest } from '../middleware/authMiddleware.js';
 // Clean SMTP credentials (remove surrounding quotes if present)
 const smtpUser = process.env.SMTP_USER?.trim().replace(/^["']|["']$/g, '') || '';
 const smtpPass = process.env.SMTP_PASS?.trim().replace(/^["']|["']$/g, '') || '';
-const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
-const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
-const smtpSecure = process.env.SMTP_SECURE === 'true' || smtpPort === 465;
 
 // Only create transporter if credentials are available
 const transporter = smtpUser && smtpPass ? nodemailer.createTransport({
-  host: smtpHost,
-  port: smtpPort,
-  secure: smtpSecure, // true for 465, false for other ports
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT),
+  secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
   auth: {
     user: smtpUser,
     pass: smtpPass,
