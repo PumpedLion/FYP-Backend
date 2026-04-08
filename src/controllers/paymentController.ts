@@ -16,7 +16,7 @@ const KHALTI_BASE_URL = process.env.KHALTI_BASE_URL || 'https://khalti.com/api/v
 const ESEWA_MERCHANT_ID = process.env.ESEWA_MERCHANT_ID || 'EPAYTEST';
 const ESEWA_SECRET_KEY = process.env.ESEWA_SECRET_KEY || '8gBm/:&EnhH.1/q'; // UAT secret key
 const ESEWA_BASE_URL = 'https://rc-epay.esewa.com.np'; // UAT URL
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://fyp-backend-qzhc.onrender.com';
 
 // ─── Check Purchase ──────────────────────────────────────────────────────────
 export const checkPurchase = async (req: AuthRequest, res: Response) => {
