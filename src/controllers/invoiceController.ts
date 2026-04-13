@@ -2,15 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../models/index.js';
 import PDFDocument from 'pdfkit';
 import jwt from 'jsonwebtoken';
-import { Resend } from 'resend';
-
-// --- Email Configuration (Resend API) ---
-const resendApiKey = process.env.RESEND_API_KEY?.trim().replace(/^["']|["']$/g, '') || '';
-const resend = resendApiKey ? new Resend(resendApiKey) : null;
-
-if (!resend) {
-  console.warn("RESEND_API_KEY not configured in invoiceController. Skipping email functionality.");
-}
+import { sendEmail } from '../utils/emailService.js';
 
 
 // --- PDF Generation Utility ---
@@ -133,11 +125,6 @@ export const downloadInvoice = async (req: Request, res: Response) => {
  * Utility function to send an email with the PDF invoice
  */
 export const sendInvoiceEmail = async (userId: number, manuscriptId: number) => {
-  if (!resend) {
-    console.warn('Resend not configured. Skipping automated email invoice.');
-    return;
-  }
-
   try {
     const purchase = await prisma.purchase.findUnique({
       where: { userId_manuscriptId: { userId, manuscriptId: Number(manuscriptId) } },
@@ -148,8 +135,7 @@ export const sendInvoiceEmail = async (userId: number, manuscriptId: number) => 
 
     const pdfBuffer = await generateInvoicePDF(purchase);
 
-    const { data, error } = await resend.emails.send({
-      from: 'YourTales Billing <onboarding@resend.dev>',
+    const { success, error } = await sendEmail({
       to: purchase.user.email as string,
       subject: `Your Receipt for "${purchase.manuscript.title}"`,
       html: `
@@ -168,13 +154,13 @@ export const sendInvoiceEmail = async (userId: number, manuscriptId: number) => 
       ],
     });
 
-    if (error) {
-      console.error('Error sending invoice email via Resend:', error);
+    if (!success) {
+      console.error('Error sending invoice email:', error);
       return;
     }
 
-    console.log(`Invoice email sent to ${purchase.user.email} (Resend ID: ${data?.id})`);
+    console.log(`Invoice email sent successfully to ${purchase.user.email}`);
   } catch (error) {
-    console.error('Error sending invoice email:', error);
+    console.error('Error in sendInvoiceEmail:', error);
   }
 };

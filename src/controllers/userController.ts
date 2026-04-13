@@ -2,50 +2,28 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { Resend } from 'resend';
+import { sendEmail } from '../utils/emailService.js';
 import path from 'path';
 import fs from 'fs';
-import prisma from '../models/index.js'; // Import the singleton instance
+import prisma from '../models/index.js';
 import { AuthRequest } from '../middleware/authMiddleware.js';
-
-// --- Email Configuration (Resend API) ---
-const resendApiKey = process.env.RESEND_API_KEY?.trim().replace(/^["']|["']$/g, '') || '';
-const resend = resendApiKey ? new Resend(resendApiKey) : null;
-
-if (!resend) {
-  console.warn("RESEND_API_KEY not configured. Email functionality disabled.");
-} else {
-  console.log("Resend API client initialized");
-}
-
 
 const generateOTP = () => Math.floor(10000 + Math.random() * 90000).toString();
 
 const sendOTPEmail = async (email: string, otp: string) => {
-  if (!resend) {
-    console.warn("Resend client not configured. Email not sent. OTP for development:", otp);
+  const { success, error } = await sendEmail({
+    to: email,
+    subject: "Your OTP for YourTales",
+    html: `<p>Your OTP is: <strong>${otp}</strong>. It expires in 10 minutes.</p>`,
+  });
+
+  if (!success) {
+    console.error("Error sending email via SMTP:", error);
+    console.warn(`OTP for ${email} (email failed): ${otp}`);
     return;
   }
 
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'YourTales Support <onboarding@resend.dev>',
-      to: email,
-      subject: "Your OTP for YourTales",
-      html: `<p>Your OTP is: <strong>${otp}</strong>. It expires in 10 minutes.</p>`,
-    });
-
-    if (error) {
-      console.error("Error sending email via Resend:", error);
-      console.warn(`OTP for ${email} (email failed): ${otp}`);
-      return;
-    }
-
-    console.log(`OTP sent to ${email} (Resend ID: ${data?.id})`);
-  } catch (error) {
-    console.error("Unexpected error sending email:", error);
-    console.warn(`OTP for ${email} (email failed): ${otp}`);
-  }
+  console.log(`OTP sent to ${email}`);
 };
 
 // --- Controllers ---
