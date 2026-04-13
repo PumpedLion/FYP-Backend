@@ -2,70 +2,48 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import path from 'path';
 import fs from 'fs';
 import prisma from '../models/index.js'; // Import the singleton instance
 import { AuthRequest } from '../middleware/authMiddleware.js';
 
-// --- Email Configuration ---
-// Clean SMTP environment variables to handle accidental quotes in Render
-const smtpUser = process.env.SMTP_USER?.trim().replace(/^["']|["']$/g, '') || '';
-const smtpPass = process.env.SMTP_PASS?.trim().replace(/^["']|["']$/g, '') || '';
-const smtpHost = process.env.SMTP_HOST?.trim().replace(/^["']|["']$/g, '') || '';
-const smtpPort = Number(process.env.SMTP_PORT?.trim().replace(/^["']|["']$/g, '')) || 0;
-const smtpSecure = process.env.SMTP_SECURE?.trim().replace(/^["']|["']$/g, '') === 'true';
+// --- Email Configuration (Resend API) ---
+const resendApiKey = process.env.RESEND_API_KEY?.trim().replace(/^["']|["']$/g, '') || '';
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
-// Only create transporter if credentials are available
-const transporter = smtpUser && smtpPass && smtpHost && smtpPort ? nodemailer.createTransport({
-  host: smtpHost,
-  port: smtpPort,
-  secure: smtpSecure, // true for 465, false for other ports
-  auth: {
-    user: smtpUser,
-    pass: smtpPass,
-  },
-  tls: {
-    rejectUnauthorized: false // For development, set to true in production
-  }
-}) : null;
-
-// Debug logging to help troubleshoot Render deployment
-console.log(`[SMTP Setup] Host: ${smtpHost || 'Missing'}, Port: ${smtpPort || 'Missing'}, Secure: ${smtpSecure}, User: ${smtpUser ? 'Provided' : 'Missing'}, Pass: ${smtpPass ? 'Provided' : 'Missing'}`);
-
-
-// Verify SMTP connection on startup (optional, can be removed if not needed)
-if (transporter) {
-  transporter.verify((error, success) => {
-    if (error) {
-      console.error("SMTP connection error:", error);
-    } else {
-      console.log("SMTP server is ready to send emails");
-    }
-  });
+if (!resend) {
+  console.warn("RESEND_API_KEY not configured. Email functionality disabled.");
 } else {
-  console.warn("SMTP credentials not configured. Email functionality disabled.");
+  console.log("Resend API client initialized");
 }
+
 
 const generateOTP = () => Math.floor(10000 + Math.random() * 90000).toString();
 
 const sendOTPEmail = async (email: string, otp: string) => {
-  if (!transporter) {
-    console.warn("SMTP not configured. Email not sent. OTP for development:", otp);
+  if (!resend) {
+    console.warn("Resend client not configured. Email not sent. OTP for development:", otp);
     return;
   }
 
   try {
-    await transporter.sendMail({
-      from: `"YourTales Support" <${smtpUser}>`,
+    const { data, error } = await resend.emails.send({
+      from: 'YourTales Support <onboarding@resend.dev>',
       to: email,
       subject: "Your OTP for YourTales",
       html: `<p>Your OTP is: <strong>${otp}</strong>. It expires in 10 minutes.</p>`,
     });
-    console.log(`OTP sent to ${email}`);
+
+    if (error) {
+      console.error("Error sending email via Resend:", error);
+      console.warn(`OTP for ${email} (email failed): ${otp}`);
+      return;
+    }
+
+    console.log(`OTP sent to ${email} (Resend ID: ${data?.id})`);
   } catch (error) {
-    console.error("Error sending email:", error);
-    // Log OTP for development purposes if email fails
+    console.error("Unexpected error sending email:", error);
     console.warn(`OTP for ${email} (email failed): ${otp}`);
   }
 };

@@ -2,30 +2,16 @@ import { Request, Response } from 'express';
 import prisma from '../models/index.js';
 import PDFDocument from 'pdfkit';
 import jwt from 'jsonwebtoken';
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
-// --- Email Configuration ---
-const smtpUser = process.env.SMTP_USER?.trim().replace(/^["']|["']$/g, '') || '';
-const smtpPass = process.env.SMTP_PASS?.trim().replace(/^["']|["']$/g, '') || '';
-const smtpHost = process.env.SMTP_HOST?.trim().replace(/^["']|["']$/g, '') || '';
-const smtpPort = Number(process.env.SMTP_PORT?.trim().replace(/^["']|["']$/g, '')) || 0;
-const smtpSecure = process.env.SMTP_SECURE?.trim().replace(/^["']|["']$/g, '') === 'true';
+// --- Email Configuration (Resend API) ---
+const resendApiKey = process.env.RESEND_API_KEY?.trim().replace(/^["']|["']$/g, '') || '';
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
-const transporter = smtpUser && smtpPass && smtpHost && smtpPort ? nodemailer.createTransport({
-  host: smtpHost,
-  port: smtpPort,
-  secure: smtpSecure, // true for 465, false for other ports
-  auth: {
-    user: smtpUser,
-    pass: smtpPass,
-  },
-  tls: {
-    rejectUnauthorized: false
-  }
-}) : null;
+if (!resend) {
+  console.warn("RESEND_API_KEY not configured in invoiceController. Skipping email functionality.");
+}
 
-// Debug logging to help troubleshoot Render deployment
-console.log(`[Invoice SMTP Setup] Host: ${smtpHost || 'Missing'}, Port: ${smtpPort || 'Missing'}, Secure: ${smtpSecure}, User: ${smtpUser ? 'Provided' : 'Missing'}, Pass: ${smtpPass ? 'Provided' : 'Missing'}`);
 
 // --- PDF Generation Utility ---
 const generateInvoicePDF = (purchase: any): Promise<Buffer> => {
@@ -147,8 +133,8 @@ export const downloadInvoice = async (req: Request, res: Response) => {
  * Utility function to send an email with the PDF invoice
  */
 export const sendInvoiceEmail = async (userId: number, manuscriptId: number) => {
-  if (!transporter) {
-    console.warn('SMTP not configured. Skipping automated email invoice.');
+  if (!resend) {
+    console.warn('Resend not configured. Skipping automated email invoice.');
     return;
   }
 
@@ -162,8 +148,8 @@ export const sendInvoiceEmail = async (userId: number, manuscriptId: number) => 
 
     const pdfBuffer = await generateInvoicePDF(purchase);
 
-    await transporter.sendMail({
-      from: `"YourTales Billing" <${smtpUser}>`,
+    const { data, error } = await resend.emails.send({
+      from: 'YourTales Billing <onboarding@resend.dev>',
       to: purchase.user.email as string,
       subject: `Your Receipt for "${purchase.manuscript.title}"`,
       html: `
@@ -178,12 +164,16 @@ export const sendInvoiceEmail = async (userId: number, manuscriptId: number) => 
         {
           filename: `Invoice_${purchase.id}.pdf`,
           content: pdfBuffer,
-          contentType: 'application/pdf',
         },
       ],
     });
 
-    console.log(`Invoice email sent to ${purchase.user.email}`);
+    if (error) {
+      console.error('Error sending invoice email via Resend:', error);
+      return;
+    }
+
+    console.log(`Invoice email sent to ${purchase.user.email} (Resend ID: ${data?.id})`);
   } catch (error) {
     console.error('Error sending invoice email:', error);
   }
