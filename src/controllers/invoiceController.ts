@@ -7,11 +7,14 @@ import nodemailer from 'nodemailer';
 // --- Email Configuration ---
 const smtpUser = process.env.SMTP_USER?.trim().replace(/^["']|["']$/g, '') || '';
 const smtpPass = process.env.SMTP_PASS?.trim().replace(/^["']|["']$/g, '') || '';
+const smtpHost = process.env.SMTP_HOST?.trim().replace(/^["']|["']$/g, '') || '';
+const smtpPort = Number(process.env.SMTP_PORT?.trim().replace(/^["']|["']$/g, '')) || 0;
+const smtpSecure = process.env.SMTP_SECURE?.trim().replace(/^["']|["']$/g, '') === 'true';
 
-const transporter = smtpUser && smtpPass ? nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+const transporter = smtpUser && smtpPass && smtpHost && smtpPort ? nodemailer.createTransport({
+  host: smtpHost,
+  port: smtpPort,
+  secure: smtpSecure, // true for 465, false for other ports
   auth: {
     user: smtpUser,
     pass: smtpPass,
@@ -20,6 +23,9 @@ const transporter = smtpUser && smtpPass ? nodemailer.createTransport({
     rejectUnauthorized: false
   }
 }) : null;
+
+// Debug logging to help troubleshoot Render deployment
+console.log(`[Invoice SMTP Setup] Host: ${smtpHost || 'Missing'}, Port: ${smtpPort || 'Missing'}, Secure: ${smtpSecure}, User: ${smtpUser ? 'Provided' : 'Missing'}, Pass: ${smtpPass ? 'Provided' : 'Missing'}`);
 
 // --- PDF Generation Utility ---
 const generateInvoicePDF = (purchase: any): Promise<Buffer> => {
