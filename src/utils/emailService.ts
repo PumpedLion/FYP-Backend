@@ -1,26 +1,17 @@
-import nodemailer from 'nodemailer';
+import { BrevoClient } from '@getbrevo/brevo';
 
-const smtpHost = process.env.SMTP_HOST?.trim().replace(/^["']|["']$/g, '') || 'smtp-relay.brevo.com';
-const smtpPort = Number(process.env.SMTP_PORT?.trim().replace(/^["']|["']$/g, '')) || 587;
-const smtpUser = process.env.SMTP_USER?.trim().replace(/^["']|["']$/g, '') || '';
-const smtpPass = process.env.SMTP_PASS?.trim().replace(/^["']|["']$/g, '') || '';
-const smtpSecure = process.env.SMTP_SECURE?.trim().replace(/^["']|["']$/g, '') === 'true';
+let client: BrevoClient | null = null;
 
-const transporter = nodemailer.createTransport({
-  host: smtpHost,
-  port: smtpPort,
-  secure: smtpSecure,
-  auth: {
-    user: smtpUser,
-    pass: smtpPass,
-  },
-  tls: {
-    rejectUnauthorized: false
+const getClient = () => {
+  if (!client) {
+    const apiKey = process.env.BREVO_API_KEY || '';
+    client = new BrevoClient({
+      apiKey: apiKey
+    });
+    console.log(`[Email Service] Initialized with Brevo API (v5)`);
   }
-});
-
-console.log(`[Email Service] Initialized with host: ${smtpHost}, port: ${smtpPort}, secure: ${smtpSecure}`);
-
+  return client;
+};
 
 interface EmailOptions {
   to: string;
@@ -31,18 +22,30 @@ interface EmailOptions {
 
 export const sendEmail = async ({ to, subject, html, attachments }: EmailOptions) => {
   try {
-    const info = await transporter.sendMail({
-      from: `"YourTales Support" <${smtpUser}>`,
-      to,
-      subject,
-      html,
-      attachments,
-    });
-    console.log(`Email sent successfully to ${to}: ${info.messageId}`);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
+    const emailData: any = {
+      subject: subject,
+      htmlContent: html,
+      sender: { name: "YourTales Support", email: "a8075e001@smtp-brevo.com" },
+      to: [{ email: to }],
+    };
 
-    console.error('Error sending email:', error);
+    if (attachments && attachments.length > 0) {
+      emailData.attachment = attachments.map(att => ({
+        content: att.content.toString('base64'),
+        name: att.filename
+      }));
+    }
+
+    const client = getClient();
+    const response = await client.transactionalEmails.sendTransacEmail(emailData);
+    
+    // In v5, response might have a different structure, usually it returns the result directly or in .data
+    const messageId = response.messageId; 
+    
+    console.log(`Email sent successfully to ${to}: ${messageId}`);
+    return { success: true, messageId };
+  } catch (error: any) {
+    console.error('Error sending email via Brevo API:', error.response ? error.response.data : error);
     return { success: false, error };
   }
 };
