@@ -1,15 +1,26 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import { sendEmail } from '../src/utils/emailService.js';
+import { getOTPTemplate } from '../src/utils/emailTemplates.js';
 
-async function test() {
-  console.log('Testing Brevo API Email Sending...');
-  const result = await sendEmail({
+async function testTemplates() {
+  console.log('Testing Registration Template...');
+  const regHtml = getOTPTemplate('Dev Rai', '12345', 'registration');
+  const regResult = await sendEmail({
     to: 'devrai3457@gmail.com',
-    subject: 'Test Email from Brevo API',
-    html: '<h1>Hello!</h1><p>This is a test email sent using the Brevo API SDK instead of SMTP.</p>'
+    subject: 'Verify your YourTales account (Test)',
+    html: regHtml
   });
-  console.log('Result:', result);
+  console.log('Registration Template Result:', regResult);
+
+  console.log('Testing Forgot Password Template...');
+  const forgotHtml = getOTPTemplate('Dev Rai', '54321', 'forgot_password');
+  const forgotResult = await sendEmail({
+    to: 'devrai3457@gmail.com',
+    subject: 'Reset your YourTales password (Test)',
+    html: forgotHtml
+  });
+  console.log('Forgot Password Template Result:', forgotResult);
 }
 
-test();
+testTemplates();

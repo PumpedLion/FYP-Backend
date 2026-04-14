@@ -7,23 +7,25 @@ import path from 'path';
 import fs from 'fs';
 import prisma from '../models/index.js';
 import { AuthRequest } from '../middleware/authMiddleware.js';
+import { getOTPTemplate } from '../utils/emailTemplates.js';
 
 const generateOTP = () => Math.floor(10000 + Math.random() * 90000).toString();
 
-const sendOTPEmail = async (email: string, otp: string) => {
+const sendOTPEmail = async (email: string, name: string, otp: string, type: 'registration' | 'forgot_password') => {
+  const isRegistration = type === 'registration';
   const { success, error } = await sendEmail({
     to: email,
-    subject: "Your OTP for YourTales",
-    html: `<p>Your OTP is: <strong>${otp}</strong>. It expires in 10 minutes.</p>`,
+    subject: isRegistration ? "Verify your YourTales account" : "Reset your YourTales password",
+    html: getOTPTemplate(name, otp, type),
   });
 
   if (!success) {
-    console.error("Error sending email via SMTP:", error);
+    console.error(`Error sending ${type} email:`, error);
     console.warn(`OTP for ${email} (email failed): ${otp}`);
     return;
   }
 
-  console.log(`OTP sent to ${email}`);
+  console.log(`${type} OTP sent to ${email}`);
 };
 
 // --- Controllers ---
@@ -59,7 +61,7 @@ export const register = async (req: Request, res: Response) => {
     },
   });
 
-  await sendOTPEmail(email, otp);
+  await sendOTPEmail(email, fullName, otp, 'registration');
 
   return res.status(201).json({
     message: 'User registered successfully. Please verify your OTP.',
@@ -226,7 +228,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
     data: { otpCode: otp },
   });
 
-  await sendOTPEmail(email, otp);
+  await sendOTPEmail(email, user.fullName, otp, 'forgot_password');
 
   return res.status(200).json({ message: 'Password reset OTP sent to your email.' });
 };
