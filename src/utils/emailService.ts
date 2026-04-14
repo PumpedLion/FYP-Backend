@@ -25,7 +25,7 @@ export const sendEmail = async ({ to, subject, html, attachments }: EmailOptions
     const emailData: any = {
       subject: subject,
       htmlContent: html,
-      sender: { name: "YourTales Support", email: "a8075e001@smtp-brevo.com" },
+      sender: { name: "YourTales Support", email: process.env.SMTP_FROM || "yourtales70@gmail.com" },
       to: [{ email: to }],
     };
 
